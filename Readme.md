@@ -3,9 +3,11 @@
 
 Generates a sprite grid of video thumbnails using `ffmpeg`.
 
-![](https://thumbs.videopress.com/kUJmAcSf?w=80&h=40&i=6&s=0&c=64&vq=1&q=90)
+![](example/sample.mp4.jpg)
 
 ## How to use
+
+See `example/index.js` which generates the image above, or the shorter example below:
 
 ```js
 var fs = require('fs');
@@ -14,9 +16,9 @@ var grid = thumbs(fs.createReadStream('video.mov'));
 grid.count(100);
 grid.interval(4);
 grid.start(0);
-grid.render(function(err, buf){
+grid.render(function(err, str){
   if (err) throw err;
-  fs.writeFileSync('grid.jpg', buf);
+  stream.pipe(fs.createWriteStream('grid.jpg'));
 });
 ```
 
@@ -87,6 +89,37 @@ Defaults to `144`.
 
 - Sets height of each individual thumb to `h`.
 - Returns the `Grid` instance object.
+
+### Grid#headertext(String[] text)
+
+- Sets the text to de drawn in the header (an array of lines).
+- Returns the grid instance object.
+
+### Grid#headertext()
+
+Returns the height of each individual thumb in the grid.
+Defaults to `[]`.
+
+### Grid#headerfontsize(Number fontsize)
+
+- Sets the font size for text in the header.
+- Returns the grid instance object.
+
+### Grid#headerfontsize()
+
+Returns the font size for text in the header.
+Defaults to `24`.
+
+
+### Grid#headerpadding(Number fontsize)
+
+- Sets the padding of the header.
+- Returns the grid instance object.
+
+### Grid#headerpadding()
+
+Returns the padding of the header.
+Defaults to `16`.
 
 ### Grid#quality()
 

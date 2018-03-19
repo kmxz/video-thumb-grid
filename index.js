@@ -31,6 +31,9 @@ function Grid(input, fn){
   this._height = 144;
   this._start = 0;
   this._rows = null;
+  this._headertext = [];
+  this._headerfontsize = 24;
+  this._headerpadding = 16;
   this._cmd = 'ffmpeg';
   this._debugprefix = '';
 
@@ -107,6 +110,30 @@ Grid.prototype.interval = function(v){
   return this._interval;
 };
 
+Grid.prototype.headertext = function(v){
+  if (arguments.length) {
+    this._headertext = v;
+    return this;
+  }
+  return this._headertext;
+};
+
+Grid.prototype.headerfontsize = function(v){
+  if (arguments.length) {
+    this._headerfontsize = v;
+    return this;
+  }
+  return this._headerfontsize;
+};
+
+Grid.prototype.headerpadding = function(v){
+  if (arguments.length) {
+    this._headerpadding = v;
+    return this;
+  }
+  return this._headerpadding;
+};
+
 Grid.prototype.cmd = function(v){
   if (arguments.length) {
     this._cmd = v;
@@ -170,13 +197,21 @@ Grid.prototype.render = function(fn){
   var width = this.width();
   var height = this.height();
 
+  var padding = this.headerpadding();
   var total_w = width * Math.ceil(this.count() / this.rows());
-  var total_h = height * this.rows();
+  var header_h = this.headerfontsize() * this.headertext().length + 2 * padding;
+  var total_h = height * this.rows() + header_h;
   this.debug(util.format('result jpeg size %dx%d', total_w, total_h), 'info');
 
   var canvas = nodeCanvas.createCanvas(total_w, total_h);
   var ctx = canvas.getContext('2d');
-  var x = 0, y = 0;
+  var x = 0, y = header_h;
+
+  ctx.font = this.headerfontsize() + 'px sans-serif';
+  ctx.fillStyle = 'rgb(255,255,255)';
+  this.headertext().forEach(function (text, index) {
+      ctx.fillText(text, padding, (index + 1) * self.headerfontsize() + padding, total_w - 2 * padding);
+  });
 
   this.debug(util.format('running ffmpeg with "%s"', args.join(' ')), 'info');
   this.ffmpegStart = process.hrtime();
