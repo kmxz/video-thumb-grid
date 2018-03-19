@@ -1,11 +1,7 @@
 var spawn = require('child_process').spawn;
-var PixelStack = require('pixel-stack');
 var JPEGStream = require('jpeg-stream');
 var time = require('timecodeutils');
-var picha = require('picha');
-var Image = picha.Image;
-var encode = picha.encodeJpeg;
-var decode = picha.decodeJpeg;
+var nodeCanvas = require('canvas');
 var debugFfmpeg = require('debug')('video-thumb-grid-ffmpeg');
 var debugInfo = require('debug')('video-thumb-grid-info');
 var util = require('util');
@@ -38,7 +34,7 @@ function Grid(input, fn){
   this._cmd = 'ffmpeg';
   this._debugprefix = '';
 
-  this._parser = new JPEGStream;
+  this._parser = new JPEGStream();
 
   this.ffmpegStart = null;
 }
@@ -145,8 +141,7 @@ Grid.prototype.args = function(){
   // resize and crop
   var w = this.width();
   var h = this.height();
-  var vf =  'fps=1/' + this.interval() + ",scale='max(" + w + ',a*'
-    + h + ")':'max(" + h + ',' + w + "/a)',crop=" + w + ':' + h;
+  var vf = 'fps=1/' + this.interval() + ",scale=" + w + ':' + h;
   argv.push('-vf', vf);
 
   // number of frames
@@ -179,7 +174,8 @@ Grid.prototype.render = function(fn){
   var total_h = height * this.rows();
   this.debug(util.format('result jpeg size %dx%d', total_w, total_h), 'info');
 
-  var stack = new PixelStack(total_w, total_h);
+  var canvas = nodeCanvas.createCanvas(total_w, total_h);
+  var ctx = canvas.getContext('2d');
   var x = 0, y = 0;
 
   this.debug(util.format('running ffmpeg with "%s"', args.join(' ')), 'info');
@@ -196,7 +192,6 @@ Grid.prototype.render = function(fn){
     this._stream.pipe(this.proc.stdin);
   }
 
-  var count = 0;
   var decoding = 0;
   var total = this.count();
 
@@ -213,12 +208,14 @@ Grid.prototype.render = function(fn){
     // decode
     self.debug('decoding jpeg thumb', 'info');
     decoding++;
-    decode(buf, function(err, img){
-      if (err) return fn(err);
-      self.debug('adding buffer', 'info');
-      stack.push(img.data, img.width, img.height, push_x, push_y, img.stride);
-      --decoding;
-      --total || complete();
+
+    nodeCanvas.loadImage(buf).then(function (img) {
+        self.debug('adding buffer', 'info');
+        ctx.drawImage(img, push_x, push_y, img.width, img.height);
+        --decoding;
+        --total || complete();
+    }).catch(function (err) {
+        fn(err);
     });
 
     if (x + width >= total_w) {
@@ -278,16 +275,8 @@ Grid.prototype.render = function(fn){
     if (self._parser.jpeg) return fn(new Error('JPEG end was expected.'));
     if (0 == self._parser.count) return fn(new Error('No JPEGs.'));
 
-    var image = new Image({
-      width: total_w,
-      height: total_h,
-      data: stack.buffer(),
-      pixel: 'rgb',
-      stride: total_w * 3
-    });
-
     self.debug('jpeg encode', 'info');
-    encode(image, { quality: self.quality() }, fn);
+    fn(null, canvas.jpegStream({ quality: self.quality() }));
 
     var gridEnd = process.hrtime(self.gridStart);
     self.debug(util.format('grid execution time: %ds %dms', gridEnd[0], gridEnd[1]/1000000), 'info');
@@ -318,6 +307,6 @@ Grid.prototype.debug = function(message, type) {
     debugFfmpeg('%s%s', this._debugprefix, message);
   else
     debugInfo('%s%s', this._debugprefix, message);
-}
+};
 
 function empty(){}
